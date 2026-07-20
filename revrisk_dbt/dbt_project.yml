@@ -1,0 +1,52 @@
+name: 'revrisk'
+version: '2.0.0'
+config-version: 2
+
+profile: 'revrisk'
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Materialization strategy is deliberate, not default.
+# Interview answer: "Staging is views because it's cheap renaming/casting and I
+# never want stale copies of source data. Dimensions are tables because they're
+# small and joined constantly. Large facts are incremental because reprocessing
+# 60K+ transactions every run is wasteful. Marts are tables because Streamlit
+# needs predictable read performance."
+models:
+  revrisk:
+    +persist_docs:
+      relation: true
+      columns: true
+
+    staging:
+      +materialized: view
+      +schema: staging
+
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+
+    core:
+      +materialized: table
+      +schema: core
+
+    marts:
+      +materialized: table
+      +schema: analytics
+
+snapshots:
+  revrisk:
+    +target_schema: snapshots
+
+seeds:
+  revrisk:
+    +schema: raw

@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    description: >
+      Transaction fact. Grain: one row per transaction_id. Incremental with a
+      3-day lookback to absorb late-arriving records; merge on transaction_id
+      prevents duplicates.
+    columns:
+      - name: transaction_id
+        description: "Primary key. Grain of the table."
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_id
+      - name: transaction_type
+        tests:
+          - accepted_values:
+              values: ['subscription','expansion','refund','credit','renewal','service_fee']
+      - name: net_amount
+        tests: [not_null]
+      - name: discount_rate
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+              inclusive: true
+
+  - name: dim_customer
+    description: "Customer dimension. Grain: one row per customer_id."
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]

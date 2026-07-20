@@ -1,0 +1,60 @@
+# RevRisk v2.0 - warehouse-portable dbt profiles
+#
+# WHY TWO TARGETS (the interview answer):
+#   The same dbt project compiles against DuckDB and Snowflake. DuckDB backs the
+#   public Streamlit demo so it runs free and forever with no credentials. Snowflake
+#   proves the project runs on a real cloud warehouse. Portability is a design goal,
+#   not an accident: models avoid warehouse-specific SQL, so the only thing that
+#   changes between targets is this file.
+#
+#   This also means the demo never dies when a Snowflake trial expires -- a real
+#   engineering tradeoff I made deliberately.
+#
+# WHY dev AND prod:
+#   dev writes to *_dev schemas so development builds never overwrite production
+#   marts that the dashboard reads. CI builds against dev; only main-branch builds
+#   target prod.
+
+revrisk:
+  target: dev
+
+  outputs:
+
+    # ---- DuckDB: default, powers the live Streamlit app ----
+    dev:
+      type: duckdb
+      path: ../data/revrisk_dev.duckdb
+      threads: 4
+      schema: main
+
+    prod:
+      type: duckdb
+      path: ../data/revrisk.duckdb
+      threads: 4
+      schema: main
+
+    # ---- Snowflake: same models, real cloud warehouse ----
+    # Populated from env vars -- never commit credentials.
+    snowflake_dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      database: REVRISK_DB
+      warehouse: REVRISK_WH
+      schema: dbt_dev
+      threads: 4
+      client_session_keep_alive: false
+
+    snowflake_prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      database: REVRISK_DB
+      warehouse: REVRISK_WH
+      schema: analytics
+      threads: 4
+      client_session_keep_alive: false

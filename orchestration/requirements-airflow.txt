@@ -1,0 +1,26 @@
+# Airflow lives in its OWN virtualenv, deliberately separate from the
+# project's .venv (which has dbt + ML dependencies).
+#
+# WHY: Airflow orchestrates by shelling out to the project's own dbt/python
+# binaries (see orchestration/dags/revrisk_pipeline_dag.py) -- it never
+# imports dbt-core or scikit-learn directly. Keeping the two dependency
+# trees separate means upgrading dbt-core's version constraint, or a
+# scikit-learn major version, never risks breaking Airflow's own (large,
+# fragile) dependency resolution, and vice versa. This is the standard
+# pattern for running Airflow alongside a dbt project in a real environment.
+#
+# Setup (one time):
+#   python3 -m venv orchestration/.airflow-venv
+#   source orchestration/.airflow-venv/bin/activate
+#   pip install --upgrade pip
+#   AIRFLOW_VERSION=2.10.4
+#   PYTHON_VERSION=3.12
+#   pip install "apache-airflow==${AIRFLOW_VERSION}" \
+#     --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+#
+# Run (see orchestration/README.md for the full walkthrough):
+#   export AIRFLOW_HOME=$(pwd)/orchestration/.airflow_home
+#   airflow db migrate
+#   ln -s $(pwd)/orchestration/dags $AIRFLOW_HOME/dags
+#   airflow dags test revrisk_daily_pipeline $(date +%Y-%m-%d)
+apache-airflow==2.10.4

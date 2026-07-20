@@ -1,0 +1,13 @@
+# Reproducible artifacts -- generated, never committed
+data/
+*.duckdb
+target/
+dbt_packages/
+logs/
+.user.yml
+
+.venv/
+__pycache__/
+*.pyc
+.env
+ml/artifacts/

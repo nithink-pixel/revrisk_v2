@@ -1,0 +1,54 @@
+version: 2
+
+# Sources declare the raw tables dbt reads but does not build. Three things this
+# buys you, all of which are interview answers:
+#   1. Lineage starts at the real source, not at a staging model floating in space.
+#   2. Source tests catch bad data at the boundary, before it poisons 20 models.
+#   3. Freshness answers "is this dashboard stale?" -- dbt source freshness compares
+#      max(loaded_at) against the thresholds below.
+
+sources:
+  - name: revrisk_raw
+    description: "Raw RevRisk source data landed by the Python ingestion pipeline."
+    schema: "{{ 'RAW' if target.type == 'snowflake' else 'revrisk_raw' }}"
+
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    loaded_at_field: ingested_at
+
+    tables:
+      - name: transactions
+        description: "One row per financial transaction. Grain: transaction_id."
+        columns:
+          - name: transaction_id
+            description: "Primary key."
+            tests: [unique, not_null]
+          - name: customer_id
+            tests: [not_null]
+          - name: transaction_type
+            tests:
+              - accepted_values:
+                  values: ['subscription','expansion','refund','credit','renewal','service_fee']
+          - name: gross_amount
+            tests: [not_null]
+
+      - name: customers
+        description: "Customer master. Grain: customer_id."
+        freshness: null   # slow-changing; a 48h alert would be noise
+        columns:
+          - name: customer_id
+            tests: [unique, not_null]
+
+      - name: contracts
+        description: "Subscription contracts. Feeds snap_contracts (SCD2)."
+        freshness: null
+        columns:
+          - name: contract_id
+            tests: [unique, not_null]
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('revrisk_raw','customers')
+                  field: customer_id

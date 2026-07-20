@@ -1,0 +1,16 @@
+dbt-core>=1.8,<1.10
+dbt-duckdb>=1.8
+dbt-snowflake>=1.8
+duckdb>=1.0
+pandas>=2.0
+streamlit>=1.30
+plotly>=5.0
+pytest>=8.0
+
+# Phase 3 -- Data Science
+scikit-learn>=1.4
+xgboost>=2.0
+statsmodels>=0.14
+matplotlib>=3.8
+seaborn>=0.13
+jupyter>=1.0

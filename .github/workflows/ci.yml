@@ -1,0 +1,71 @@
+name: RevRisk CI
+
+# One workflow, not three. It answers the only question CI needs to answer on a
+# portfolio project: "does this pull request break the models or the tests?"
+#
+# Interview answer for "how does CI protect production?":
+#   Every PR compiles and builds the full dbt DAG against the dev target and runs
+#   every test. A broken model or a failed data test fails the check, so it can't
+#   reach main. Production marts are only rebuilt from main.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./revrisk_dbt
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+
+      - name: Generate source data
+        # The warehouse is gitignored and reproducible, so CI rebuilds it.
+        run: python ../data_generator/generate.py
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: dbt compile
+        # Fails fast on broken refs/Jinja before touching the warehouse.
+        run: dbt compile --target dev
+
+      - name: dbt build
+        # build = run + test, in DAG order. A failing test stops downstream models.
+        run: dbt build --target dev
+
+      - name: Python unit tests
+        working-directory: .
+        run: pytest tests/ -v
+
+      - name: Generate dbt docs
+        run: dbt docs generate --target dev
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts
+          path: |
+            revrisk_dbt/target/manifest.json
+            revrisk_dbt/target/run_results.json
+            revrisk_dbt/target/catalog.json
+          retention-days: 14

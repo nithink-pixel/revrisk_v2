@@ -1,0 +1,88 @@
+version: 2
+
+models:
+  - name: mart_executive_kpis
+    description: >
+      Governed executive KPI mart. Grain: revenue_month x region x segment.
+      Single source of truth for net_revenue -- Streamlit reads this, never raw.
+    columns:
+      - name: revenue_month
+        tests: [not_null]
+      - name: net_revenue
+        tests: [not_null]
+      - name: effective_discount_rate
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+              inclusive: true
+
+  - name: mart_revenue_leakage
+    description: >
+      Transaction-grain revenue leakage detail (discount / refund / failed
+      payment). Only includes transactions with nonzero leakage of at least
+      one kind -- see model file for the reverse-engineered leakage formulas.
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: leakage_type
+        tests:
+          - accepted_values:
+              values: ['discount', 'refund', 'failed_payment']
+      - name: estimated_discount_leakage
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: refund_leakage
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: failed_payment_leakage
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+
+  - name: mart_revenue_variance_signals
+    description: >
+      Month-over-month revenue variance per region x segment, with a rule-based
+      severity flag. Grain: one row per region x segment x month (first month
+      per group excluded -- no baseline to compare against).
+    columns:
+      - name: signal_id
+        tests: [not_null, unique]
+      - name: severity
+        tests:
+          - accepted_values:
+              values: ['Low', 'High']
+      - name: estimated_revenue_impact
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+
+  - name: mart_customer_health
+    description: >
+      Rule-based customer health score, grain = one row per customer.
+      Original design (see model file) -- not cloned from the third-party
+      export that inspired it, which was ~74% corrupted on inspection.
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: health_score
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+              inclusive: true
+      - name: risk_level
+        tests:
+          - accepted_values:
+              values: ['Low', 'Medium', 'High']
+      - name: revenue_at_risk
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
